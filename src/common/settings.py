@@ -6,8 +6,13 @@ parameters = {
     },
     'article_id': {
         'type': 'string',
-        "minLength": 12,
-        "maxLength": 12
+        'minLength': 12,
+        'maxLength': 12
+    },
+    'user_id': {
+        'type': 'string',
+        'minLength': 1,
+        'maxLength': 255
     },
     'sort_key': {
         'type': 'integer',
@@ -17,3 +22,5 @@ parameters = {
 }
 
 article_recent_default_limit = 20
+
+users_articles_public_default_limit = 10
