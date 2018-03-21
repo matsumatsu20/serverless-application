@@ -13,6 +13,7 @@ Globals:
         ARTICLE_CONTENT_TABLE_NAME: !Ref ArticleContent
         ARTICLE_EVALUATED_MANAGE_TABLE_NAME: !Ref ArticleEvaluatedManage
         ARTICLE_ALIS_TOKEN_TABLE_NAME: !Ref ArticleAlisToken
+        COGNITO_EMAIL_VERIFY_URL: {{ COGNITO_EMAIL_VERIFY_URL }}
 
 Resources:
   SNSRole:
@@ -45,10 +46,11 @@ Resources:
         - email
         - phone_number
       AutoVerifiedAttributes:
-        - phone_number
         - email
-      EmailVerificationMessage: "Your verification code is {####}."
+      EmailVerificationMessage: "Your verification code is {{ '{' }}####}."
       EmailVerificationSubject: "Your verification code"
+      LambdaConfig:
+        CustomMessage: !GetAtt CognitoTriggerCustomMessage.Arn
       MfaConfiguration: "OPTIONAL"
       Policies:
         PasswordPolicy:
@@ -82,8 +84,8 @@ Resources:
           - - 'external-'
             - !Ref "AWS::StackName"
         SnsCallerArn: !GetAtt SNSRole.Arn
-      SmsAuthenticationMessage:  "Your authentication code is {####}."
-      SmsVerificationMessage: "Your verification code is {####}."
+      SmsAuthenticationMessage:  "Your authentication code is {{ '{' }}####}."
+      SmsVerificationMessage: "Your verification code is {{ '{' }}####}."
   UserPoolClient:
     Type: AWS::Cognito::UserPoolClient
     Properties:
@@ -274,7 +276,7 @@ Resources:
                 responses:
                   default:
                     statusCode: "200"
-                uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ArticleInfoRecent.Arn}/invocations
+                uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ArticlesRecent.Arn}/invocations
                 passthroughBehavior: when_no_templates
                 httpMethod: POST
                 type: aws_proxy
@@ -296,7 +298,7 @@ Resources:
                 responses:
                   default:
                     statusCode: "200"
-                uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ArticleContentShow.Arn}/invocations
+                uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ArticlesShow.Arn}/invocations
                 passthroughBehavior: when_no_templates
                 httpMethod: POST
                 type: aws_proxy
@@ -322,7 +324,7 @@ Resources:
                 responses:
                   default:
                     statusCode: "200"
-                uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ArticleAlisTokenShow.Arn}/invocations
+                uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ArticlesAlisTokensShow.Arn}/invocations
                 passthroughBehavior: when_no_templates
                 httpMethod: POST
                 type: aws_proxy
@@ -407,16 +409,25 @@ Resources:
             Principal:
               Service:
                 - "lambda.amazonaws.com"
+                - "cognito-idp.amazonaws.com"
             Action:
               - "sts:AssumeRole"
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
-  ArticleInfoRecent:
+        - arn:aws:iam::aws:policy/CloudWatchLogsFullAccess
+  LambdaInvocationPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt CognitoTriggerCustomMessage.Arn
+      Principal: cognito-idp.amazonaws.com
+      SourceArn: !GetAtt UserPool.Arn
+  ArticlesRecent:
     Type: AWS::Serverless::Function
     Properties:
       Handler: handler.lambda_handler
       Role: !GetAtt LambdaRole.Arn
-      CodeUri: ./deploy/article_info_recent.zip
+      CodeUri: ./deploy/articles_recent.zip
       Events:
         Api:
           Type: Api
@@ -424,12 +435,12 @@ Resources:
             Path: /articles/recent
             Method: get
             RestApiId: !Ref RestApi
-  ArticleContentShow:
+  ArticlesShow:
     Type: AWS::Serverless::Function
     Properties:
       Handler: handler.lambda_handler
       Role: !GetAtt LambdaRole.Arn
-      CodeUri: ./deploy/article_contents_show.zip
+      CodeUri: ./deploy/articles_show.zip
       Events:
         Api:
           Type: Api
@@ -437,12 +448,12 @@ Resources:
             Path: /articles/{article_id}
             Method: get
             RestApiId: !Ref RestApi
-  ArticleAlisTokenShow:
+  ArticlesAlisTokensShow:
     Type: AWS::Serverless::Function
     Properties:
       Handler: handler.lambda_handler
       Role: !GetAtt LambdaRole.Arn
-      CodeUri: ./deploy/article_alis_tokens_show.zip
+      CodeUri: ./deploy/articles_alis_tokens_show.zip
       Events:
         Api:
           Type: Api
@@ -489,6 +500,12 @@ Resources:
             Path: /articles/{article_id}/likes
             Method: post
             RestApiId: !Ref RestApi
+  CognitoTriggerCustomMessage:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: handler.lambda_handler
+      Role: !GetAtt LambdaRole.Arn
+      CodeUri: ./src/handlers/cognito_trigger/handler.py
   ArticleInfo:
     Type: AWS::DynamoDB::Table
     Properties:
