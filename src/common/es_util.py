@@ -1,4 +1,7 @@
 # -*- coding: utf-8 -*-
+import logging
+
+
 class ESUtil:
 
     @staticmethod
@@ -36,6 +39,9 @@ class ESUtil:
 
     @staticmethod
     def search_article(elasticsearch, limit, page, word=None, tag=None):
+        logging.info(word)
+        logging.info(tag)
+
         body = {
             "query": {
                 "bool": {
@@ -82,6 +88,9 @@ class ESUtil:
                 index="articles",
                 body=body
         )
+
+        logging.info(res)
+
         return res
 
     @staticmethod

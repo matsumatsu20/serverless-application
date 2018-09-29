@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 import json
+import logging
+
 import settings
 from es_util import ESUtil
 from lambda_base import LambdaBase
@@ -29,15 +31,23 @@ class SearchArticles(LambdaBase):
         validate(self.params, self.get_schema())
 
     def exec_main_proc(self):
+        logging.info(self.params)
+
         query = self.params.get('query')
         tag = self.params.get('tag')
         limit = int(self.params.get('limit')) if self.params.get('limit') is not None else settings.article_recent_default_limit
         page = int(self.params.get('page')) if self.params.get('page') is not None else 1
         response = ESUtil.search_article(self.elasticsearch, limit, page, word=query, tag=tag)
+
+        logging.info(response)
+
         result = []
         for a in response["hits"]["hits"]:
             del(a["_source"]["body"])
             result.append(a["_source"])
+
+        logging.info(result)
+
         return {
             'statusCode': 200,
             'body': json.dumps(result, cls=DecimalEncoder)
